@@ -1,6 +1,7 @@
 /*
  * PROJECT: CONNECT-U (Starter Code)
  * Course: ECE367L Data Structures & Algorithms
+ * Student: Marie Wong
  * 
  * SAFETY UPDATE:
  * The saveData() function call in main() is currently COMMENTED OUT.
