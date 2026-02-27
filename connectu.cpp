@@ -53,18 +53,18 @@ public:
     void addPost(int pid, int uid, string content, int likes, long time) {
         // TODO: LAB 1
         Post* newPost = new Post(pid, uid, content, likes, time);
-        newPost->next = head; 
-        head = newPost;
+        newPost->next = head; // new post is before old head
+        head = newPost; // new post is new head
     }
 
     void printTimeline() {
         Post* current = head;
+        // If no posts return appropriate message
         if (!current) { cout << "  (No posts yet)" << endl; return; }
         
-        // Task: Traverse the linked list and print content
+        // Task: Traverse the linked list and print content at each node
         // TODO: LAB 1
         while (current) {cout << current->content << endl; current = current->next;}
-
     }
 };
 
@@ -161,9 +161,16 @@ private:
     static const int TABLE_SIZE = 10007; 
     HashNode** table;
 
-    unsigned long hashFunction(string key) {
-        // TODO: LAB 2
-        return 0; 
+    // LAB 2, s = key. Assigns a hash value to the key using polynomial rolling hash
+    size_t hashFunction(const std::string& s){
+        size_t h = 0;               // initialize hash value
+        int b = 31;                 // base, could be any prime number
+        size_t m = TABLE_SIZE;      // used to limit hash value to table size
+        for(unsigned char c:s) {    // loop through chars in string
+            h=(h * b + c) % m;      // update hash value using polynomial rolling hash
+        }
+
+        return h;                   // return final hash value
     }
 
 public:
@@ -172,15 +179,24 @@ public:
         for (int i = 0; i < TABLE_SIZE; i++) table[i] = nullptr;
     }
 
-    void put(string key, User* user) { /* TODO: LAB 2 */ }
+    // LAB 2: puts a (key, value) pair into the UserMap using chaining
+    void put(string key, User* user) { 
+        int idx = hashFunction(key);                    // assign id to user using key and hash    
+        HashNode* newNode = new HashNode(key, user);    // make new (key, user) node
+        newNode->next = table[idx];                     // add new node at head of chain at idx in UserMap
+        table[idx] = newNode;                           // update table to point to new head of chain
+    }
 
+    // LAB 2: Use hash lookup to find user using name
     User* get(string key) {
-        // --- TEMPORARY FALLBACK FOR LAB 1 ---
-        for(User* u : allUsers) {
-            if (u->username == key) return u;
+        int idx = hashFunction(key);        // get index from hashFunction
+        HashNode* current = table[idx];     // track node at index in UserMap
+
+        while(current != nullptr) {         // while there are nodes in chain
+            if(current->key == key) return current->value;  // return user if key matches
+            current = current->next;        // check next node in chain
         }
-        // TODO: LAB 2 - REPLACE ABOVE WITH HASH LOOKUP
-        return nullptr;
+        return nullptr;                     // return nullptr if user not found
     }
 };
 
@@ -239,6 +255,13 @@ void registerNewUser(string username, int tech, int art, int sport) {
     int newId = allUsers.size() + 1; 
     User* newUser = new User(newId, username, tech, art, sport);
     allUsers.push_back(newUser);
+
+    // added in Lab 2 to prevent duplicate usernames
+    if (userMap.get(username) != nullptr) {
+        cout << "\n[ERROR] Username already exists. Registration failed." << endl;
+        return;
+    } 
+    
     userMap.put(username, newUser);
     cout << "\n[SUCCESS] Account created." << endl;
 }
