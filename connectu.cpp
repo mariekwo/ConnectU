@@ -37,9 +37,10 @@ struct Post {
     Post(int pid, int uid, string txt, int lk, long time) 
         : postId(pid), userId(uid), content(txt), likes(lk), timestamp(time), next(nullptr) {}
         
-    // TODO: LAB 3 - Implement Scoring Logic
+    // LAB 3 - Implement Scoring Logic
+    // (Likes * 10) + (1000 / (HoursOld + 1))
     double getScore() {
-        return 0.0; 
+        return (likes*10)+(1000/((time(0)-timestamp)/3600+1)); 
     }
 };
 
@@ -84,7 +85,7 @@ public:
     BSTNode* root;
     FriendBST() : root(nullptr) {}
 
-    BSTNode* insert(BSTNode* node, User* u) ;
+    BSTNode* insert(BSTNode* node, User* u);
 
     void printInOrder(BSTNode* node);
 
@@ -121,13 +122,30 @@ public:
     vector<User*> getFriendsList() { return friends; }
 };
 
-// BST Implementation
+// BST Implementation: LAB 4
 BSTNode* FriendBST::insert(BSTNode* node, User* u) {
-    // TODO: LAB 4
+    if (node == nullptr) return new BSTNode(u); // no node exists
+
+    if (u->username == node->user->username) {  // duplicate
+        cout << "  Friend already added" << endl;
+        return node;
+    }
+    
+    // checks if user should be in left or right subtree
+    if (u->username <= node->user->username) {
+        node->left = insert(node->left, u);
+    }
+    if (u->username >= node->user->username) {
+        node->right = insert(node->right, u);
+    }
     return node;
 }
+
+// LAB 4
 void FriendBST::printInOrder(BSTNode* node) {
-    // TODO: LAB 4
+    if (node->left != nullptr) printInOrder(node->left);
+    cout << "  " + node->user->username << endl;
+    if (node->right != nullptr) printInOrder(node->right);
 }
 
 // TODO: LAB 3 - Max Heap
@@ -135,14 +153,72 @@ class FeedHeap {
 private:
     Post* heap[1000]; 
     int size;
+    
+    // Updates heap after root is extracted
+    // Finds largest value of current and child nodes
+    // Swaps so that largest value is current then checks swapped child for heap property
+    void heapifyDown(int index) {
+        int left = 2*index + 1;
+        int right = 2*index + 2;
+        int largest = index;        // initialize as current node
+        
+        if (left < size && heap[largest]->getScore() < heap[left]->getScore()) {  
+            largest = left;                 // left is larger than current
+        }
+        // if right exists and is larger than left and current
+        if (right < size && heap[largest]->getScore() < heap[right]->getScore()) {
+            largest = right;                // right is largest value
+        }
+        if (largest != index) {             // if current node isn't largest
+            Post* temp = heap[index];       // save current node
+            heap[index] = heap[largest];    // swap largest child with current
+            heap[largest] = temp;           // 
+            heapifyDown(largest);           // check if node needs to move further down
+        }
+    }
 
-    void heapifyDown(int index) { /* TODO: LAB 3 */ }
-    void heapifyUp(int index) { /* TODO: LAB 3 */ }
+    // Updates heap after a new post is added
+    void heapifyUp(int index) {
+        int parent = 0;
+        for (int i = index; i > 0;) {       // while there are more nodes to check
+            parent = (i-1) / 2;             // update parent index
+            // if i node is higher scored than parent
+            if (heap[i]->getScore() > heap[parent]->getScore()) {
+                Post* temp = heap[i];       // save node
+                heap[i] = heap[parent];     // swap i and parent
+                heap [parent] = temp;       //
+                i = parent;                 // update new i
+            } else { break; }               // break loop if heap properties are true 
+        }
+    }
 
 public:
     FeedHeap() : size(0) {}
-    void push(Post* p) { /* TODO: LAB 3 */ }
-    Post* popMax() { return nullptr; /* TODO: LAB 3 */ }
+    // Adds a new post to the feed
+    void push(Post* p) {
+        if (p == nullptr) return;   // exit if p is null
+        if (size >= 1000) return;   // exits if heap is at max size
+        heap[size] = p;     // insert a post at the end of the heap array
+        heapifyUp(size);    // sort posts as needed to maintain heap properties
+        size++;             // update heap size;
+    }
+    // Returns max valued post (should be root)
+    Post* popMax() { 
+        if (isEmpty()) return nullptr;  // return null if heap is empty
+        Post* max = heap[0];            // record root node
+        if (size > 1) {                 // if there are other nodes
+            heap[0] = heap[size-1];     // move last post to root
+            heap[size-1] = nullptr;     // erase last entry in array
+            size--;
+            heapifyDown(0);             // reorder the heap as needed
+        } else {                        // erase only entry in array
+            heap[0] = nullptr;
+            size = 0;
+        }     
+
+        return max;     // return max value post
+    }
+
     bool isEmpty() { return size == 0; }
 };
 
@@ -430,6 +506,7 @@ void showUserDashboard(User* currentUser) {
             int count = 0;
             while(!feed.isEmpty() && count < 10) {
                 Post* top = feed.popMax();
+                if (top == nullptr) cout << "\n[top = nullptr]" << endl;
                 if(top)
                     cout << "  > [ID: " << top->postId << "] [Score: " << (int)top->getScore() << "] @" 
                          << allUsers[top->userId - 1]->username << ": " << top->content 
