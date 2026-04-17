@@ -351,7 +351,31 @@ void addFriendship(User* requester, User* target) {
 // TODO: LAB 5 - Breadth First Search
 void recommendFriends(User* startUser) {
     cout << "\n[GRAPH ANALYSIS] Finding friends of friends..." << endl;
-    // TODO: LAB 5
+    
+    std::queue<User*> toVisit;          // Queue of Users to check for friends
+    std::set<int> visited;              // Set to track visited users by userId
+    visited.insert(startUser->userId);  // Mark starting user as visited
+    bool foundRecommendations = false;  // Flag to track if any recommendations are found
+
+    for (User* f : startUser->friends) {
+        toVisit.push(f);            // Popultate with user's direct friends
+        visited.insert(f->userId);  // Mark direct friends as visited
+    }
+    if (toVisit.empty()) cout << "  (No friends to get recommendations from)" << endl;
+    while (!toVisit.empty()) {
+        User* current = toVisit.front();        // Get next friend to check
+        toVisit.pop();                          // Update queue
+
+        for (User* ff : current->friends) {     // Check friends of current friend
+            if (visited.find(ff->userId) == visited.end()) { // If not visited
+                foundRecommendations = true;    // Toggle flag if a rec is found
+                cout << ff->username << endl;   // Print recommendation
+                visited.insert(ff->userId);     // Mark as visited
+            }
+        }
+        visited.insert(current->userId);        // Mark current friend as visited
+    }
+    if (!foundRecommendations) cout << "  (No friend recommendations found)" << endl;
 }
 
 // ==========================================
