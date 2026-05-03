@@ -19,12 +19,91 @@
 #include <set>
 #include <queue>
 #include <algorithm>
+#include <map>
 
 using namespace std;
 
 // ==========================================
 // MODELS & DATA STRUCTURES
 // ==========================================
+
+// Lab 6 - Capstone Feature: Messaging System
+struct Message {
+    int messageId;
+    int senderId;
+    int recipientId;
+    string content;
+    long timestamp;
+    Message* prev; 
+    Message* next; 
+
+    Message(int mid, int sid, int rid, string txt, long time) 
+        : messageId(mid), senderId(sid), recipientId(rid), content(txt), timestamp(time), prev(nullptr),next(nullptr) {}
+};
+
+int GLOBAL_MESSAGE_ID_COUNTER = 1;
+
+// Lab 6 - Capstone Feature: Messaging System
+class ChatHistory {
+public:
+    Message* head;  // newer msgs are added to head
+    Message* tail;
+    int size;
+
+    ChatHistory() : head(nullptr), tail(nullptr), size(0) {}
+
+    // Add a new message to the FRONT of the list (O(1))
+    void addMessage(int mid, int sid, int rid, long time, string content) {
+        Message* newMessage = new Message(mid, sid, rid, content, time);
+        // if first message
+        if (!head) {
+            head = tail = newMessage;
+        // else make links
+        } else {
+            newMessage->next = head;
+            head->prev = newMessage;
+            head = newMessage;
+        }
+        size++;
+    }
+
+    // prints FIFO order (oldest to newest)
+    // max: max number of messages to print
+    // offset: # of messages to skip 
+    void printChatHistory(int currentUserId, int max = 10, int offset = 0) {
+        Message* newest = head;
+        // If no messages return appropriate message
+        if (!newest) { cout << "  (No messages yet)" << endl; return; }
+        
+        // Skip messages based on offset
+        for (int i = 0; i < offset && newest; i++) {
+            newest = newest->next;
+        }
+
+        // check if there are messages after offset
+        if (!newest) { 
+            cout << "[No older messages]" << endl; 
+            offset-=10; 
+
+            // recursive call to show newer messages if no older messages
+            printChatHistory(currentUserId, max, offset); 
+        }
+
+        // find oldest message to print based on max and offset
+        Message* current = newest;
+        for (int i = 1; current->next && i < max; i++) {
+            current = current->next;
+        }
+
+        //prints up to max # of messages in chat history starting from most recent
+        while (current != newest->prev) {
+            string label = (current->senderId == currentUserId) ? "[you]" : "[them]";
+            cout << label << ":" << current->content << endl;
+            current = current->prev;
+        }
+           
+    }
+};
 
 struct Post {
     int postId;
@@ -106,6 +185,7 @@ public:
     Timeline timeline;       // Lab 1
     vector<User*> friends;   // Graph
     FriendBST friendTree;    // Lab 4
+    std::map<int, ChatHistory> chats; // Lab 6 - Capstone Feature: Messaging System
 
     User(int id, string name, int t, int a, int s) 
         : userId(id), username(name), techScore(t), artScore(a), sportScore(s) {}
@@ -120,6 +200,13 @@ public:
     }
     
     vector<User*> getFriendsList() { return friends; }
+
+    void sendMessage(User* recipient, string content) {
+        int mid = GLOBAL_MESSAGE_ID_COUNTER++;
+        long timestamp = time(0);
+        chats[recipient->userId].addMessage(mid, userId, recipient->userId, timestamp, content);
+        recipient->chats[userId].addMessage(mid, userId, recipient->userId, timestamp, content);
+    }
 };
 
 // BST Implementation: LAB 4
@@ -135,7 +222,7 @@ BSTNode* FriendBST::insert(BSTNode* node, User* u) {
     if (u->username <= node->user->username) {
         node->left = insert(node->left, u);
     }
-    if (u->username >= node->user->username) {
+    else if (u->username >= node->user->username) {
         node->right = insert(node->right, u);
     }
     return node;
@@ -425,6 +512,22 @@ void loadData() {
         }
         postFile.close();
     }
+    ifstream msgFile("messages.csv");
+    if (msgFile.is_open()) {
+        getline(msgFile, line); 
+        while (getline(msgFile, line)) {
+            vector<string> row = split(line);
+            if (row.size() < 5) continue;
+            int mid = stoi(row[0]); int sid = stoi(row[1]); int rid = stoi(row[2]);
+            if (sid <= allUsers.size() && rid <= allUsers.size()) {
+                allUsers[sid-1]->chats[rid].addMessage(mid, sid, rid, stol(row[4]), row[3]);
+                allUsers[rid-1]->chats[sid].addMessage(mid, sid, rid, stol(row[4]), row[3]);
+                if (mid >= GLOBAL_MESSAGE_ID_COUNTER) GLOBAL_MESSAGE_ID_COUNTER = mid + 1;
+            }
+        }
+        msgFile.close();
+    }
+     cout << "Done." << endl;
 }
 
 void saveData() {
@@ -467,6 +570,30 @@ void saveData() {
         }
     }
     postFile.close();
+
+    // save messages from oldest to newest so head is newest
+    ofstream msgFile("messages.csv");
+    msgFile << "message_id,sender_id,recipient_id,content,timestamp\n";
+    for (User* u : allUsers) {
+    for (auto& pair : u->chats) {
+        // To avoid saving the same message twice (A->B and B->A), 
+        // only save if the current user is the sender.
+        Message* curr = pair.second.tail;
+        while (curr) {
+            if (curr->senderId == u->userId) { 
+                string safeContent = curr->content;
+                if (safeContent.find(',') != string::npos) safeContent = "\"" + safeContent + "\"";
+                
+                msgFile << curr->messageId << "," << curr->senderId << "," 
+                        << curr->recipientId << "," << safeContent << "," 
+                        << curr->timestamp << "\n";
+                }
+                curr = curr->prev;
+            }
+        }
+    }
+    msgFile.close();
+
     cout << "Done." << endl;
 }
 
@@ -484,7 +611,7 @@ void clearScreen() {
 
 void showUserDashboard(User* currentUser) {
     int choice = 0;
-    while (choice != 7) {
+    while (choice != 8) {
         cout << "\n--- Welcome, @" << currentUser->username << " ---" << endl;
         cout << "1. View My Post (Lab 1)" << endl;
         cout << "2. Create New Post (Lab 1)" << endl;
@@ -492,7 +619,8 @@ void showUserDashboard(User* currentUser) {
         cout << "4. Algorithmic Feed (Lab 3)" << endl;
         cout << "5. View Friends Sorted (Lab 4)" << endl;
         cout << "6. Get Friend Recommendations (Lab 5)" << endl;
-        cout << "7. Logout" << endl;
+        cout << "7. Messages (Lab 6)" << endl;
+        cout << "8. Logout" << endl;
         cout << "Select >> ";
         cin >> choice;
 
@@ -556,6 +684,110 @@ void showUserDashboard(User* currentUser) {
              recommendFriends(currentUser);
         }
         else if (choice == 7) {
+            int msgChoice = 0;
+            while (msgChoice != 3) {
+                cout << "\n--- Message Menu ---" << endl;
+                cout << "1. View & Reply to Chats" << endl;
+                cout << "2. Start New Chat" << endl;
+                cout << "3. Back to Main Menu" << endl;
+                cout << "Select >> ";
+                cin >> msgChoice;
+            
+                bool inSubMenu = true;
+                if (msgChoice == 1) {
+                    while (inSubMenu) {
+                        cout << "\n[MY CHATS]" << endl;
+                        if (currentUser->chats.empty()) {
+                            cout << "  (No chats yet)" << endl;
+                        }
+                        vector<int> activeIds;
+                        int i = 1;
+                        for (auto const& pair : currentUser->chats) {
+                            int friendId = pair.first;
+                            User* friendUser = allUsers[friendId - 1];
+                            cout << i << ": @" << friendUser->username << endl;
+                            activeIds.push_back(friendId);
+                            i++;
+                        }
+
+                        cout << "Select a chat to view (0 to go back): ";
+                        int chatChoice; cin >> chatChoice;
+                        if (chatChoice == 0) inSubMenu = false;
+                        if (chatChoice < 1 || chatChoice > currentUser->chats.size()) {
+                            cout << "Invalid choice." << endl;
+                            continue;
+                        }
+                        else {
+                            int choiceId = activeIds[chatChoice - 1];
+                            User* choiceUser = allUsers[choiceId - 1];
+                            int msgChoice2 = -1;
+                            int maxMsgs = 10;   // max # of msgs to show at a time
+                            int offset = 0; // how many msgs to skip
+
+                            while (msgChoice2 != 0) {
+                                cout << "\n--- Chat with @" << choiceUser->username << " ---" << endl;
+                                currentUser->chats[choiceId].printChatHistory(currentUser->userId, maxMsgs, offset);
+
+                                cout << "\n0. Back to Chat List\n1. Reply\n2. View Older Messages\n3. View Newer Messages\nSelect >> ";
+                                cin >> msgChoice2;
+                            
+                                if (msgChoice2 == 1) {
+                                    cin.ignore(1000, '\n');
+                                    string content;
+                                    cout << "Enter message: ";
+                                    getline(cin, content);
+
+                                    if (!content.empty()) {
+                                        currentUser->sendMessage(choiceUser, content);
+                                        cout << "[Sent]" << endl;
+                                        offset = 0; // reset offset to show new message
+                                    }
+                                }
+                                else if (msgChoice2 == 2) {
+                                    offset += 10;
+
+                                    if (offset >= currentUser->chats[choiceId].size) {
+                                        cout << "\n[No older messages]" << endl;
+                                        offset -= 10; // reset offset if no older messages
+                                    } else
+                                    cout << "\n[Viewing older messages...]" << endl;
+                                }
+                                else if (msgChoice2 == 3) {
+                                    offset = max(0, offset - 10);
+                                    cout << "\n[Viewing newer messages...]" << endl;
+                                }
+                            }
+                        }
+                        
+                    }
+                }
+                else if (msgChoice == 2) {
+                    string recipientName;
+                    cout << "Enter recipient username: "; cin >> recipientName;
+                    User* recipient = userMap.get(recipientName);
+                    if (recipient && recipient != currentUser) {
+                        cin.ignore();
+                        string content;
+                        cout << "Enter message: ";
+                        getline(cin, content);
+                        currentUser->sendMessage(recipient, content);
+                        cout << "Message sent to @" << recipient->username << "!" << endl;
+                    } else {
+                        cout << "Invalid user." << endl;
+                    }
+                }
+                else if (msgChoice == 3) {
+                    cout << "Exiting Messages..." << endl;
+                }
+                else {
+                    cout << "Invalid choice." << endl;
+                    continue;
+                }
+            }
+
+            
+        }
+        else if (choice == 8) {
             cout << "Logging out..." << endl;
         }
     }

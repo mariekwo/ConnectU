@@ -1,0 +1,21 @@
+message_id,sender_id,recipient_id,content,timestamp
+1,11,14,"Hey, are you going to Hamilton Library later?",1714500000
+3,12,11,Did you finish the ECE 367 Lab?,1714501200
+2,14,11,"Yeah, I'll be there at 2pm.",1714500500
+4,11,12,Almost! Just debugging the chat map.,1714501500
+5,14,11,"Sweet. Are we meeting on the first floor or the Sunny Side?",1714502000
+6,11,14,"Let's do Sunny Side. More outlets for our laptops.",1714502500
+7,14,11,"Good call. My battery is already at 20%.",1714503000
+8,11,14,"I'm bringing a power strip just in case.",1714503500
+9,14,11,"Life saver! By the way, did you get the BST logic to work?",1714504000
+10,11,14,"Mostly, but my printInOrder function is skipping the root.",1714504500
+11,14,11,"Check your null pointer checks. I had the same issue.",1714505000
+12,11,14,"I'll look at it when I get to the library.",1714505500
+13,11,14,"Just parked. Heading up to the 3rd floor now.",1714506000
+14,14,11,"I just grabbed a coffee from the Bean, be there in 5.",1714506500
+15,11,14,"Can you grab me a cold brew? I'll Venmo you.",1714507000
+16,14,11,"Sure thing. Cream or sugar?",1714507500
+17,11,14,"Just black is fine, thanks!",1714508000
+18,14,11,"Got it. Standing in line now, it's pretty busy.",1714508500
+19,11,14,"No rush. I found a table near the window.",1714509000
+20,14,11,"Awesome, see you in a bit.",1714509500
